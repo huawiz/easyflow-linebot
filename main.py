@@ -10,6 +10,8 @@ if os.getenv('API_ENV') != 'production':
 
 import json
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.requests import Request
+from fastapi.responses import JSONResponse
 from linebot.v3.webhook import WebhookParser
 from linebot.v3.messaging import (
     AsyncApiClient,
@@ -180,7 +182,7 @@ async def handle_callback(request: Request):
             '''
             
             # 圖片
-            bubble_string = bubble_string.replace('[picURL]',str(request.base_url) + f"static/{sceneID}.png")
+            bubble_string = bubble_string.replace('[picURL]',request.url_for('static', path=f"{sceneID}.png"))
 
             # 劇情
             bubble_string = bubble_string.replace('[scene_text]',scene.text)
@@ -213,7 +215,7 @@ async def handle_callback(request: Request):
                 messages = chatgpt
 
             if END_match:
-                END_ID = END_match.group(1)
+                endID = END_match.group(1)
             
             model = genai.GenerativeModel('gemini-pro')
             
@@ -247,7 +249,7 @@ async def handle_callback(request: Request):
                 print(f"An unexpected error occurred: {e}")
                 generated_text = "發生了意外錯誤，請稍後再試。"
 
-            end_scene = End(END_ID)
+            #end_scene = End(endID)
             bubble_string = '''
             {
             "type": "bubble",
@@ -272,7 +274,7 @@ async def handle_callback(request: Request):
             }
             }
             '''
-            bubble_string = bubble_string.replace('[picURL]',str(request.base_url) + f"static/{END_ID}.png")
+            bubble_string = bubble_string.replace('[picURL]',request.url_for('static', path=f"{endID}.png"))
             print(generated_text)
             bubble_string = bubble_string.replace('[end_text]', generated_text)  # 使用生成的文本
             msg = FlexMessage(alt_text=text, contents=FlexContainer.from_json(bubble_string)) 
