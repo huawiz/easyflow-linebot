@@ -184,6 +184,9 @@ async def handle_callback(request: Request):
             # 圖片
             bubble_string = bubble_string.replace('[picURL]',os.getenv('url') + f"static/{sceneID}.png")
 
+            uria=os.getenv('url') + f"static/{sceneID}.png"
+            logging.info(f"URI={uria}")
+
             # 劇情
             bubble_string = bubble_string.replace('[scene_text]',scene.text)
             logging.info(scene.text)
@@ -275,6 +278,8 @@ async def handle_callback(request: Request):
             }
             '''
             bubble_string = bubble_string.replace('[picURL]',os.getenv('url') + f"static/{END_ID}.png")
+            uria=os.getenv('url') + f"static/{END_ID}.png"
+            logging.info(f"URI={uria}")
             print(generated_text)
             bubble_string = bubble_string.replace('[end_text]', generated_text)  # 使用生成的文本
             msg = FlexMessage(alt_text=text, contents=FlexContainer.from_json(bubble_string)) 
