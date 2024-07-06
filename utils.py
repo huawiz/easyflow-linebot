@@ -103,7 +103,7 @@ json_str = '''
         "text": "你們結束兩天一夜小旅行，感情急速升溫，你非常開心。某天IG突然收到陌生訊息：你身材很好耶，有在約嗎～！",
         "pic": "",
         "opt_a": [{
-          "text": "戀愛的甜蜜背後隱藏許多風險，如果發現自己私密照外流，你可以...（chatbot提供報警方式＆心輔資源）",
+          "text": "觀看結局1",
           "next": "END1"
         }]
       }]
@@ -114,7 +114,7 @@ json_str = '''
         "text": "對方露出哀求的表情：我愛你才想這麼做、我保證我會更愛你！你的內心開始有點動搖...",
         "pic": "",
         "opt_a": [{
-          "text": "戀愛的甜蜜背後隱藏許多風險，愛他不等於要答應他...（chatbot解釋什麼是情侶間的PUA）",
+          "text": "觀看結局3",
           "next": "END3"
         }]
       }]
@@ -125,7 +125,7 @@ json_str = '''
         "text": "你們結束兩天一夜小旅行，接下來逐漸發現兩人價值觀的差異，最後和平分手...",
         "pic": "",
         "opt_a": [{
-          "text": "戀愛的甜蜜背後隱藏許多風險，未來你遇到不知道該怎麼辦的狀況，可以先找簡單愛。事務所詢問歐！",
+          "text": "觀看結局2",
           "next": "END2"
         }]
       }]
@@ -155,7 +155,7 @@ json_str = '''
         "text": "你們結束兩天一夜小旅行，感情急速升溫，你非常開心。某天IG突然收到陌生訊息：你身材很好耶，有在約嗎～！",
         "pic": "",
         "opt_a": [{
-          "text": "123",
+          "text": "觀看結局2",
           "next": "END2"
         }]
       }]
@@ -166,7 +166,7 @@ json_str = '''
         "text": "對方露出哀求的表情：我愛你才想這麼做、我保證我會更愛你！你的內心開始有點動搖...",
         "pic": "",
         "opt_a": [{
-          "text": "123",
+          "text": "觀看結局3",
           "next": "END3"
         }]
       }]
@@ -175,9 +175,9 @@ json_str = '''
 }
 '''
 
-data = json.loads(json_str)
+scene_data = json.loads(json_str)
 def getSceneByKey(key):
-    return next((scene['content'] for scene in data['scenes'] if scene['key'] == key), None)
+    return next((scene['content'] for scene in scene_data['scenes'] if scene['key'] == key), None)
 
 class Scene:
     def __init__(self, key):
@@ -212,7 +212,7 @@ class Scene:
                 "action": {
                     "type": "message",
                     "label": option['text'],
-                    "text": "情節 "+option['next']
+                    "text": f"{'結局' if 'END' in option['next'] else '情節'}{option['next']}"
                 },
                 "style": "secondary",
                 "height": "md",
@@ -225,6 +225,38 @@ class Scene:
 
     def __str__(self):
         return f"Scene(key={self.key}, text={self.text}, options={self.options})"
+
+end_json = '''
+{
+  "end": [
+        {
+            "key":"END1",
+            "text":"戀愛的甜蜜背後隱藏許多風險，如果發現自己私密照外流，你可以..."
+        },
+        {
+            "key":"END2",
+            "text":"戀愛的甜蜜背後隱藏許多風險，未來你遇到不知道該怎麼辦的狀況，可以先找簡單愛。事務所詢問歐！"
+        },{
+            "key":"END3",
+            "text":"戀愛的甜蜜背後隱藏許多風險，愛他不等於要答應他..."
+        }
+    ]
+}
+'''
+
+end_data = json.loads(end_json)
+
+def getEndByKey(key):
+    return next((end for end in end_data['end'] if end['key'] == key), None)
+
+class End:
+    def __init__(self, key):
+        self.key = key
+        self.content = getEndByKey(self.key)
+        if self.content:
+            self.text = self.content.get('text', '')
+        else:
+            self.text = ''
 
 def main():
     try:

@@ -48,7 +48,7 @@ parser = WebhookParser(channel_secret)
 
 import google.generativeai as genai
 from firebase import firebase
-from utils import Scene,json_str,data
+from utils import Scene,json_str,scene_data,End,end_json,end_data
 from fastapi.staticfiles import StaticFiles
 # Mount the static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -107,70 +107,70 @@ async def handle_callback(request: Request):
             scene = Scene(sceneID)
             
             bubble_string = '''
-{
-    "type": "carousel",
-    "contents": [
-      {
-        "type": "bubble",
-        "body": {
-          "type": "box",
-          "layout": "vertical",
-          "contents": [
             {
-              "type": "image",
-              "url": "[picURL]",
-              "size": "full",
-              "aspectMode": "cover",
-              "aspectRatio": "2:3",
-              "gravity": "top"
+                "type": "carousel",
+                "contents": [
+                {
+                    "type": "bubble",
+                    "body": {
+                    "type": "box",
+                    "layout": "vertical",
+                    "contents": [
+                        {
+                        "type": "image",
+                        "url": "[picURL]",
+                        "size": "full",
+                        "aspectMode": "cover",
+                        "aspectRatio": "2:3",
+                        "gravity": "top"
+                        }
+                    ],
+                    "paddingAll": "0px"
+                    }
+                },
+                {
+                    "type": "bubble",
+                    "header": {
+                    "type": "box",
+                    "layout": "vertical",
+                    "contents": [
+                        {
+                        "type": "text",
+                        "text": "劇情",
+                        "wrap": true,
+                        "color": "#000000",
+                        "size": "xxl",
+                        "flex": 5,
+                        "weight": "bold"
+                        }
+                    ]
+                    },
+                    "body": {
+                    "type": "box",
+                    "layout": "vertical",
+                    "contents": [
+                        {
+                        "type": "text",
+                        "text": "[scene_text]",
+                        "maxLines": 10,
+                        "wrap": true
+                        }
+                    ]
+                    },
+                    "footer": {
+                    "type": "box",
+                    "layout": "vertical",
+                    "contents": [
+                        {
+                        "type": "box",
+                        "layout": "vertical",
+                        "contents": [button]
+                        }
+                    ]
+                    }
+                }
+                ]
             }
-          ],
-          "paddingAll": "0px"
-        }
-      },
-      {
-        "type": "bubble",
-        "header": {
-          "type": "box",
-          "layout": "vertical",
-          "contents": [
-            {
-              "type": "text",
-              "text": "劇情",
-              "wrap": true,
-              "color": "#000000",
-              "size": "xxl",
-              "flex": 5,
-              "weight": "bold"
-            }
-          ]
-        },
-        "body": {
-          "type": "box",
-          "layout": "vertical",
-          "contents": [
-            {
-              "type": "text",
-              "text": "[scene_text]",
-              "maxLines": 10,
-              "wrap": true
-            }
-          ]
-        },
-        "footer": {
-          "type": "box",
-          "layout": "vertical",
-          "contents": [
-            {
-              "type": "box",
-              "layout": "vertical",
-              "contents": [button]
-            }
-          ]
-        }
-      }
-    ]
-  }
             '''
             
             # 圖片
@@ -178,13 +178,52 @@ async def handle_callback(request: Request):
 
             # 劇情
             bubble_string = bubble_string.replace('[scene_text]',scene.text)
-
+            logging.info(scene.text)
             # 產生選項按鈕
             bubble_string = bubble_string.replace('[button]',json.dumps(scene.generate_buttons(), ensure_ascii=False, indent=2))
-            logging.info(bubble_string)
+            #logging.info(bubble_string)
+
             # 產生FlexMessage
             msg = FlexMessage(alt_text=text, contents=FlexContainer.from_json(bubble_string))    
             
+            await line_bot_api.reply_message(
+                ReplyMessageRequest(
+                    reply_token=event.reply_token,
+                    messages=[msg]
+                ))
+        elif text.find('結局') != -1 and msg_type == 'text':
+            END_match = re.search(r'結局\s*([A-Za-z0-9]+)', text)
+            if END_match:
+                END_ID = END_match.group(1)
+            
+            end_scene = End(END_ID)
+            bubble_string = '''
+            {
+            "type": "bubble",
+            "size": "giga",
+            "hero": {
+                "type": "image",
+                "size": "full",
+                "aspectRatio": "13:20",
+                "aspectMode": "cover",
+                "url": "[picURL]"
+            },
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [
+                {
+                    "type": "text",
+                    "text": "[end_text]",
+                    "wrap": true
+                }
+                ]
+            }
+            }
+            '''
+            bubble_string = bubble_string.replace('[picURL]',str(request.base_url) + f"static/{END_ID}.png")
+            bubble_string = bubble_string.replace('[end_text]',end_scene.text)
+            msg = FlexMessage(alt_text=text, contents=FlexContainer.from_json(bubble_string)) 
             await line_bot_api.reply_message(
                 ReplyMessageRequest(
                     reply_token=event.reply_token,
