@@ -182,8 +182,8 @@ async def handle_callback(request: Request):
             '''
             
             # 圖片
-            bubble_string = bubble_string.replace('[picURL]',request.url_for('static', path=f"{sceneID}.png"))
-            print(request.url_for('static', path=f"{sceneID}.png"))
+            bubble_string = bubble_string.replace('[picURL]',str(request.base_url) + f"static/{sceneID}.png")
+
             # 劇情
             bubble_string = bubble_string.replace('[scene_text]',scene.text)
             logging.info(scene.text)
@@ -215,7 +215,7 @@ async def handle_callback(request: Request):
                 messages = chatgpt
 
             if END_match:
-                endID = END_match.group(1)
+                END_ID = END_match.group(1)
             
             model = genai.GenerativeModel('gemini-pro')
             
@@ -249,7 +249,7 @@ async def handle_callback(request: Request):
                 print(f"An unexpected error occurred: {e}")
                 generated_text = "發生了意外錯誤，請稍後再試。"
 
-            #end_scene = End(endID)
+            end_scene = End(END_ID)
             bubble_string = '''
             {
             "type": "bubble",
@@ -274,7 +274,7 @@ async def handle_callback(request: Request):
             }
             }
             '''
-            bubble_string = bubble_string.replace('[picURL]',request.url_for('static', path=f"{endID}.png"))
+            bubble_string = bubble_string.replace('[picURL]',str(request.base_url) + f"static/{END_ID}.png")
             print(generated_text)
             bubble_string = bubble_string.replace('[end_text]', generated_text)  # 使用生成的文本
             msg = FlexMessage(alt_text=text, contents=FlexContainer.from_json(bubble_string)) 
