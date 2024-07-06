@@ -183,7 +183,7 @@ async def handle_callback(request: Request):
             
             # 圖片
             bubble_string = bubble_string.replace('[picURL]',request.url_for('static', path=f"{sceneID}.png"))
-
+            print(request.url_for('static', path=f"{sceneID}.png")
             # 劇情
             bubble_string = bubble_string.replace('[scene_text]',scene.text)
             logging.info(scene.text)
