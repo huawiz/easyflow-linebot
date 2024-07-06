@@ -13,15 +13,15 @@ json_str = '''
         "pic": "",
         "opt_a": [{
           "text": "不管怎樣先搶浴室",
-          "next": "B2"
+          "next": "B2:不管怎樣先搶浴室"
         }],
         "opt_b": [{
           "text": "有點尷尬那我來放音樂",
-          "next": "B1"
+          "next": "B1:有點尷尬那我來放音樂"
         }],
         "opt_c": [{
           "text": "坐在床邊看他要幹嘛我再來決定我要幹嘛",
-          "next": "B1"
+          "next": "B1:坐在床邊看他要幹嘛我再來決定我要幹嘛"
         }]
       }]
     },
@@ -32,15 +32,15 @@ json_str = '''
         "pic": "",
         "opt_a": [{
           "text": "先發制人吻上去",
-          "next": "C1"
+          "next": "C1:先發制人吻上去"
         }],
         "opt_b": [{
           "text": "假裝鎮定等他先動作",
-          "next": "C1"
+          "next": "C1:假裝鎮定等他先動作"
         }],
         "opt_c": [{
           "text": "覺得發展太快把頭撇開",
-          "next": "C2"
+          "next": "C2:覺得發展太快把頭撇開"
         }]
       }]
     },
@@ -51,11 +51,11 @@ json_str = '''
         "pic": "",
         "opt_a": [{
           "text": "假裝沒人在裡面，默默把水關掉",
-          "next": "C2"
+          "next": "C2:假裝沒人在裡面，默默把水關掉"
         }],
         "opt_b": [{
           "text": "門開了一個小縫，暗示他進來",
-          "next": "C1"
+          "next": "C1:門開了一個小縫，暗示他進來"
         }]
       }]
     },
@@ -66,15 +66,15 @@ json_str = '''
         "pic": "",
         "opt_a": [{
           "text": "好啊我們互拍，當做情侶間的情趣",
-          "next": "D1"
+          "next": "D1:好啊我們互拍，當做情侶間的情趣"
         }],
         "opt_b": [{
           "text": "內心覺得不妥，但當下沒有拒絕",
-          "next": "D1"
+          "next": "D1:內心覺得不妥，但當下沒有拒絕"
         }],
         "opt_c": [{
           "text": "搖頭說不太好，你想暫停冷靜一下",
-          "next": "D2"
+          "next": "D2:搖頭說不太好，你想暫停冷靜一下"
         }]
       }]
     },
@@ -85,15 +85,15 @@ json_str = '''
         "pic": "",
         "opt_a": [{
           "text": "誠實說我覺得發展太快了，還沒準備好",
-          "next": "D3"
+          "next": "D3:誠實說我覺得發展太快了，還沒準備好"
         }],
         "opt_b": [{
           "text": "急忙說我愛你，接著吻上去",
-          "next": "D4"
+          "next": "D4:急忙說我愛你，接著吻上去"
         }],
         "opt_c": [{
           "text": "不講話",
-          "next": "D2"
+          "next": "D2:不講話"
         }]
       }]
     },
@@ -137,15 +137,15 @@ json_str = '''
         "pic": "",
         "opt_a": [{
           "text": "好啊我們互拍，當做情侶間的情趣",
-          "next": "E1"
+          "next": "E1:好啊我們互拍，當做情侶間的情趣"
         }],
         "opt_b": [{
           "text": "內心覺得不妥，但當下沒有拒絕",
-          "next": "E1"
+          "next": "E1:內心覺得不妥，但當下沒有拒絕"
         }],
         "opt_c": [{
           "text": "搖頭說不太好，你想暫停冷靜一下",
-          "next": "E2"
+          "next": "E2:搖頭說不太好，你想暫停冷靜一下"
         }]
       }]
     },
@@ -258,16 +258,3 @@ class End:
         else:
             self.text = ''
 
-def main():
-    try:
-        scene = Scene("D3")
-        buttons = scene.generate_buttons()
-        if buttons:
-            print(json.dumps(scene.generate_buttons(), ensure_ascii=False, indent=2))
-        else:
-            print("沒有可用的按鈕選項。")
-    except Exception as e:
-        print(f"發生錯誤: {e}")
-
-if __name__ == "__main__":
-    main()
