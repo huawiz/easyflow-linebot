@@ -110,89 +110,60 @@ async def handle_callback(request: Request):
             sceneID_match = re.search(r'情節\s*([A-Za-z0-9]+)', text.split(':')[0])
             if sceneID_match:
                 sceneID = sceneID_match.group(1)
-            else:
-                sceneID = 'A'
+            
+            if sceneID == 'A':
+                fdb.delete(user_chat_path, None)
+
             scene = Scene(sceneID)
             
             bubble_string = '''
-            {
-                "type": "carousel",
+           {
+            "type": "bubble",
+            "size": "giga",
+            "hero": {
+                "type": "image",
+                "size": "full",
+                "aspectRatio": "14:13",
+                "aspectMode": "cover",
+                "url": "{picURL}"
+            },
+            "body": {
+                "type": "box",
+                "layout": "vertical",
                 "contents": [
                 {
-                    "type": "bubble",
-                    "body": {
-                    "type": "box",
-                    "layout": "vertical",
-                    "contents": [
-                        {
-                        "type": "image",
-                        "url": "[picURL]",
-                        "size": "full",
-                        "aspectMode": "cover",
-                        "aspectRatio": "2:3",
-                        "gravity": "top"
-                        }
-                    ],
-                    "paddingAll": "0px"
-                    }
-                },
-                {
-                    "type": "bubble",
-                    "header": {
-                    "type": "box",
-                    "layout": "vertical",
-                    "contents": [
-                        {
-                        "type": "text",
-                        "text": "劇情",
-                        "wrap": true,
-                        "color": "#000000",
-                        "size": "xxl",
-                        "flex": 5,
-                        "weight": "bold"
-                        }
-                    ]
-                    },
-                    "body": {
-                    "type": "box",
-                    "layout": "vertical",
-                    "contents": [
-                        {
-                        "type": "text",
-                        "text": "[scene_text]",
-                        "maxLines": 10,
-                        "wrap": true
-                        }
-                    ]
-                    },
-                    "footer": {
+                    "type": "text",
+                    "text": "{scene_text}",
+                    "wrap": true
+                }
+                ]
+            },
+           "footer": {
                     "type": "box",
                     "layout": "vertical",
                     "contents": [
                         {
                         "type": "box",
                         "layout": "vertical",
-                        "contents": [button]
+                        "contents": {button}
                         }
                     ]
                     }
-                }
-                ]
             }
             '''
             
             # 圖片
-            bubble_string = bubble_string.replace('[picURL]',os.getenv('url') + f"static/{sceneID}.png")
+            bubble_string = bubble_string.replace('{picURL}',os.getenv('url') + f"static/{sceneID}.png")
 
             uria=os.getenv('url') + f"static/{sceneID}.png"
             logging.info(f"URI={uria}")
 
             # 劇情
-            bubble_string = bubble_string.replace('[scene_text]',scene.text)
+            bubble_string = bubble_string.replace('{scene_text}',scene.text)
             logging.info(scene.text)
             
             # 產生選項按鈕
-            bubble_string = bubble_string.replace('[button]',json.dumps(scene.generate_buttons(), ensure_ascii=False, indent=2))
+            bubble_string = bubble_string.replace('{button}',json.dumps(scene.generate_buttons(), ensure_ascii=False, indent=2))
             #logging.info(bubble_string)
 
             # 產生FlexMessage
@@ -260,9 +231,9 @@ async def handle_callback(request: Request):
             "hero": {
                 "type": "image",
                 "size": "full",
-                "aspectRatio": "13:20",
+                "aspectRatio": "14:13",
                 "aspectMode": "cover",
-                "url": "[picURL]"
+                "url": "{picURL}"
             },
             "body": {
                 "type": "box",
@@ -270,18 +241,47 @@ async def handle_callback(request: Request):
                 "contents": [
                 {
                     "type": "text",
-                    "text": "[end_text]",
+                    "text": "{end_text}",
                     "wrap": true
+                }
+                ]
+            },
+            "footer": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [
+                {
+                    "type": "button",
+                    "action": {
+                    "type": "message",
+                    "label": "再產生一次結局",
+                    "text": "結局{END_ID}"
+                    },
+                    "style": "secondary",
+                    "adjustMode": "shrink-to-fit",
+                    "margin": "5px"
+                },
+                {
+                    "type": "button",
+                    "action": {
+                    "type": "message",
+                    "label": "清除並再試一次",
+                    "text": "情節A:清除並重新開始"
+                    },
+                    "style": "secondary",
+                    "margin": "5px",
+                    "adjustMode": "shrink-to-fit"
                 }
                 ]
             }
             }
             '''
-            bubble_string = bubble_string.replace('[picURL]',os.getenv('url') + f"static/{END_ID}.png")
+            bubble_string = bubble_string.replace('{picURL}',os.getenv('url') + f"static/{END_ID}.png")
+            bubble_string = bubble_string.replace('{END_ID}',END_ID)
             uria=os.getenv('url') + f"static/{END_ID}.png"
             logging.info(f"URI={uria}")
             print(generated_text)
-            bubble_string = bubble_string.replace('[end_text]', generated_text)  # 使用生成的文本
+            bubble_string = bubble_string.replace('{end_text}', generated_text)  # 使用生成的文本
             msg = FlexMessage(alt_text=text, contents=FlexContainer.from_json(bubble_string)) 
             await line_bot_api.reply_message(
                 ReplyMessageRequest(
