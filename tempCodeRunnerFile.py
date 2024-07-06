@@ -1,1 +1,0 @@
-scene_a.get_next_scene_key('a')
