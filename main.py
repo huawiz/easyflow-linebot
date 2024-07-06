@@ -92,11 +92,9 @@ async def handle_callback(request: Request):
 
         msg_type = event.message.type
         fdb = firebase.FirebaseApplication(firebase_url, None)
-        if event.source.type == 'group':
-            user_chat_path = f'chat/{event.source.group_id}'
-        else:
-            user_chat_path = f'chat/{user_id}'
-            chat_state_path = f'state/{user_id}'
+
+        user_chat_path = f'chat/{user_id}'
+        #chat_state_path = f'state/{user_id}'
         chatgpt = fdb.get(user_chat_path, None)
         
 
