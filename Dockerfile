@@ -1,4 +1,4 @@
-FROM python:3.12
+FROM python:3.9
 
 # 將專案複製到容器中
 COPY . /app
