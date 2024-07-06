@@ -109,7 +109,7 @@ async def handle_callback(request: Request):
             if sceneID_match:
                 sceneID = sceneID_match.group(1)
             
-            if sceneID == 'A':
+            if text.find('情除') != -1:
                 fdb.delete(user_chat_path, None)
 
             scene = Scene(sceneID)
