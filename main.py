@@ -2,16 +2,8 @@ import logging
 import os
 import re
 import sys
-
-if os.getenv('API_ENV') != 'production':
-    from dotenv import load_dotenv
-
-    load_dotenv()
-
 import json
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.requests import Request
-from fastapi.responses import JSONResponse
 from linebot.v3.webhook import WebhookParser
 from linebot.v3.messaging import (
     AsyncApiClient,
@@ -23,7 +15,19 @@ from linebot.v3.messaging import (
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.webhooks import MessageEvent, TextMessageContent
 import uvicorn
-import requests
+
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
+import google.generativeai as genai
+from firebase import firebase
+from utils import Scene,scene_data
+from fastapi.staticfiles import StaticFiles
+
+if os.getenv('API_ENV') != 'production':
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+
 
 logging.basicConfig(level=os.getenv('LOG', 'WARNING'))
 logger = logging.getLogger(__file__)
@@ -47,11 +51,7 @@ async_api_client = AsyncApiClient(configuration)
 line_bot_api = AsyncMessagingApi(async_api_client)
 parser = WebhookParser(channel_secret)
 
-from google.generativeai.types import HarmCategory, HarmBlockThreshold
-import google.generativeai as genai
-from firebase import firebase
-from utils import Scene,json_str,scene_data,End,end_json,end_data
-from fastapi.staticfiles import StaticFiles
+
 # Mount the static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -94,26 +94,27 @@ async def handle_callback(request: Request):
         fdb = firebase.FirebaseApplication(firebase_url, None)
 
         user_chat_path = f'chat/{user_id}'
-        #chat_state_path = f'state/{user_id}'
         chatgpt = fdb.get(user_chat_path, None)
         
 
-        if text.find('情節') != -1 and msg_type == 'text':
+
+        if ('情節' in text[:5] or '結局' in text[:5]) and msg_type == 'text':
             
-            if chatgpt is None:
-                messages = []
+            messages = chatgpt if chatgpt is not None else []
+                
+            if '情節' in text[:5]:
+                match = re.search(r'情節\s*([A-Za-z0-9]+)', text.split(':')[0])
+                sceneID = match.group(1) if match else None
+                scene = Scene(sceneID) if match else None
+                if text.split(':')[1] == "清除並重新開始":
+                    fdb.delete_async(user_chat_path, None)
             else:
-                messages = chatgpt
-
-            sceneID_match = re.search(r'情節\s*([A-Za-z0-9]+)', text.split(':')[0])
-            if sceneID_match:
-                sceneID = sceneID_match.group(1)
+                match = re.search(r'結局\s*([A-Za-z0-9]+)', text.split(':')[0])
+                sceneID = match.group(1) if match else None
+                scene = Scene(sceneID) 
             
-            if text.find('清除') != -1:
-                fdb.delete_async(user_chat_path, None)
 
-            scene = Scene(sceneID)
-            
+
             bubble_string = '''
            {
             "type": "bubble",
@@ -152,52 +153,22 @@ async def handle_callback(request: Request):
             
             # 圖片
             bubble_string = bubble_string.replace('{picURL}',os.getenv('url') + f"static/{sceneID}.png")
-
-            uria=os.getenv('url') + f"static/{sceneID}.png"
-            logging.info(f"URI={uria}")
-
-            # 劇情
-            bubble_string = bubble_string.replace('{scene_text}',scene.text)
-            logging.info(scene.text)
-            
+            logging.info(os.getenv('url') + f"static/{sceneID}.png")
+ 
             # 產生選項按鈕
-            bubble_string = bubble_string.replace('{button}',json.dumps(scene.generate_buttons(), ensure_ascii=False, indent=2))
-            #logging.info(bubble_string)
-
-            # 產生FlexMessage
-            msg = FlexMessage(alt_text=text, contents=FlexContainer.from_json(bubble_string))    
-            
-
-
-            messages.append({'role': 'user', 'scene': scene.text+'\n','action':text.split(':')[1]})
-            # 更新firebase中的對話紀錄
-            fdb.put_async(user_chat_path, None, messages)
-            
-            await line_bot_api.reply_message(
-                ReplyMessageRequest(
-                    reply_token=event.reply_token,
-                    messages=[msg]
-                ))
-            
-        elif text.find('結局') != -1 and msg_type == 'text':
-            END_match = re.search(r'結局\s*([A-Za-z0-9]+)', text)
-
-            # 讀Firebase資料
-            if chatgpt is None:
-                messages = []
+            if '情節' in text[:5]:
+                bubble_string = bubble_string.replace('{scene_text}',scene.text)
+                bubble_string = bubble_string.replace('{button}',json.dumps(scene.generate_buttons(), ensure_ascii=False, indent=2))
+                # 更新firebase中的對話紀錄
+                messages.append({'role': 'user', 'scene': scene.text+'\n','action':text.split(':')[1]})
+                fdb.put_async(user_chat_path, None, messages)
             else:
-                messages = chatgpt
+                # 產生loading animation
+                await line_bot_api.show_loading_animation(ShowLoadingAnimationRequest(chatId=event.source.user_id, loadingSeconds=5))
 
-            if END_match:
-                END_ID = END_match.group(1)
-            
-        
-            # 產生loading animation
-            await line_bot_api.show_loading_animation(ShowLoadingAnimationRequest(chatId=event.source.user_id, loadingSeconds=5))
-
-            # 產生結局文字
-            model = genai.GenerativeModel('gemini-pro')
-            try:
+                # 產生結局文字
+                model = genai.GenerativeModel('gemini-pro')
+                
                 response = model.generate_content(
                     f'現在我們有一段感情故事，故事內容如下，請幫我產生結局文字，文字最多100字:\n\n\n{messages}',
                     safety_settings={
@@ -207,86 +178,13 @@ async def handle_callback(request: Request):
                         HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
                     }
                 )
+                bubble_string = bubble_string.replace('{scene_text}', response.text)
+                bubble_string = bubble_string.replace('{button}',scene.end_buttons())
+                bubble_string = bubble_string.replace('{sceneID}',sceneID)
 
-                # 檢查是否有內容被阻止
-                if response.prompt_feedback.block_reason:
-                    print(f"Content was blocked. Reason: {response.prompt_feedback.block_reason}")
-                    generated_text = "抱歉，無法生成適當的結局。"
-                else:
-                    # 使用 parts 來獲取生成的文本
-                    generated_text = response.text
-                    if not generated_text:
-                        generated_text = "抱歉，生成的結局為空。"
-                
-                print(f"Generated text: {generated_text}")
-
-            except ValueError as ve:
-                print(f"ValueError occurred: {ve}")
-                generated_text = "抱歉，我無法生成適當的結局。"
-            except Exception as e:
-                print(f"An unexpected error occurred: {e}")
-                generated_text = "發生了意外錯誤，請稍後再試。"
-
-            end_scene = End(END_ID)
-            bubble_string = '''
-            {
-            "type": "bubble",
-            "size": "giga",
-            "hero": {
-                "type": "image",
-                "size": "full",
-                "aspectRatio": "14:13",
-                "aspectMode": "cover",
-                "url": "{picURL}"
-            },
-            "body": {
-                "type": "box",
-                "layout": "vertical",
-                "contents": [
-                {
-                    "type": "text",
-                    "text": "{end_text}",
-                    "wrap": true
-                }
-                ]
-            },
-            "footer": {
-                "type": "box",
-                "layout": "vertical",
-                "contents": [
-                {
-                    "type": "button",
-                    "action": {
-                    "type": "message",
-                    "label": "再產生一次結局",
-                    "text": "結局{END_ID}"
-                    },
-                    "style": "secondary",
-                    "adjustMode": "shrink-to-fit",
-                    "margin": "5px"
-                },
-                {
-                    "type": "button",
-                    "action": {
-                    "type": "message",
-                    "label": "清除並再試一次",
-                    "text": "情節A:清除並重新開始"
-                    },
-                    "style": "secondary",
-                    "margin": "5px",
-                    "adjustMode": "shrink-to-fit"
-                }
-                ]
-            }
-            }
-            '''
-            bubble_string = bubble_string.replace('{picURL}',os.getenv('url') + f"static/{END_ID}.png")
-            bubble_string = bubble_string.replace('{END_ID}',END_ID)
-            uria=os.getenv('url') + f"static/{END_ID}.png"
-            logging.info(f"URI={uria}")
-            print(generated_text)
-            bubble_string = bubble_string.replace('{end_text}', generated_text)  # 使用生成的文本
-            msg = FlexMessage(alt_text=text, contents=FlexContainer.from_json(bubble_string)) 
+            # 產生FlexMessage
+            msg = FlexMessage(alt_text=text, contents=FlexContainer.from_json(bubble_string))    
+            
             await line_bot_api.reply_message(
                 ReplyMessageRequest(
                     reply_token=event.reply_token,
@@ -296,13 +194,9 @@ async def handle_callback(request: Request):
             fdb.delete(user_chat_path, None)
 
         else:
-            if chatgpt is None:
-                messages = []
-            else:
-                messages = chatgpt
             model = genai.GenerativeModel('gemini-pro')
             response = model.generate_content(
-                    f'{text}',
+                    f'{text}(請使用繁體中文回答)',
                     safety_settings={
                         HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
                         HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
@@ -316,11 +210,7 @@ async def handle_callback(request: Request):
                     reply_token=event.reply_token,
                     messages=[TextMessage(text=reply_msg)]
                 ))
-            
-        
-            
-            
-        
+    
     return 'OK'
 
 if __name__ == "__main__":
