@@ -18,7 +18,7 @@ from linebot.v3.messaging import (
     AsyncMessagingApi,
     Configuration,
     ReplyMessageRequest,
-    TextMessage,FlexMessage,FlexContainer
+    TextMessage,FlexMessage,FlexContainer,ShowLoadingAnimationRequest
 )
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.webhooks import MessageEvent, TextMessageContent
@@ -172,11 +172,13 @@ async def handle_callback(request: Request):
             messages.append({'role': 'user', 'scene': scene.text+'\n','action':text.split(':')[1]})
             # 更新firebase中的對話紀錄
             fdb.put_async(user_chat_path, None, messages)
+            
             await line_bot_api.reply_message(
                 ReplyMessageRequest(
                     reply_token=event.reply_token,
                     messages=[msg]
                 ))
+            
         elif text.find('結局') != -1 and msg_type == 'text':
             END_match = re.search(r'結局\s*([A-Za-z0-9]+)', text)
 
@@ -189,8 +191,12 @@ async def handle_callback(request: Request):
             if END_match:
                 END_ID = END_match.group(1)
             
+        
+            # 產生loading animation
+            await line_bot_api.show_loading_animation(ShowLoadingAnimationRequest(chatId=event.source.user_id, loadingSeconds=5))
+
+            # 產生結局文字
             model = genai.GenerativeModel('gemini-pro')
-            
             try:
                 response = model.generate_content(
                     f'現在我們有一段感情故事，故事內容如下，請幫我產生結局文字，文字最多100字:\n\n\n{messages}',
