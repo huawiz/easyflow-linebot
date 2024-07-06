@@ -1,0 +1,201 @@
+import logging
+import os
+import re
+import sys
+
+if os.getenv('API_ENV') != 'production':
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+import json
+from fastapi import FastAPI, HTTPException, Request
+from linebot.v3.webhook import WebhookParser
+from linebot.v3.messaging import (
+    AsyncApiClient,
+    AsyncMessagingApi,
+    Configuration,
+    ReplyMessageRequest,
+    TextMessage,FlexMessage,FlexContainer
+)
+from linebot.v3.exceptions import InvalidSignatureError
+from linebot.v3.webhooks import MessageEvent, TextMessageContent
+import uvicorn
+import requests
+
+logging.basicConfig(level=os.getenv('LOG', 'WARNING'))
+logger = logging.getLogger(__file__)
+
+app = FastAPI()
+
+channel_secret = os.getenv('LINE_CHANNEL_SECRET', None)
+channel_access_token = os.getenv('LINE_CHANNEL_ACCESS_TOKEN', None)
+if channel_secret is None:
+    print('Specify LINE_CHANNEL_SECRET as environment variable.')
+    sys.exit(1)
+if channel_access_token is None:
+    print('Specify LINE_CHANNEL_ACCESS_TOKEN as environment variable.')
+    sys.exit(1)
+
+configuration = Configuration(
+    access_token=channel_access_token
+)
+
+async_api_client = AsyncApiClient(configuration)
+line_bot_api = AsyncMessagingApi(async_api_client)
+parser = WebhookParser(channel_secret)
+
+
+import google.generativeai as genai
+from firebase import firebase
+from utils import Scene,json_str,data
+from fastapi.staticfiles import StaticFiles
+# Mount the static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+firebase_url = os.getenv('FIREBASE_URL')
+gemini_key = os.getenv('GEMINI_API_KEY')
+
+
+# Initialize the Gemini Pro API
+genai.configure(api_key=gemini_key)
+
+
+@app.get("/health")
+async def health():
+    return 'ok'
+
+
+@app.post("/webhooks/line")
+async def handle_callback(request: Request):
+    signature = request.headers['X-Line-Signature']
+
+    # get request body as text
+    body = await request.body()
+    body = body.decode()
+
+    try:
+        events = parser.parse(body, signature)
+    except InvalidSignatureError:
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    for event in events:
+        logging.info(event)
+        if not isinstance(event, MessageEvent):
+            continue
+        if not isinstance(event.message, TextMessageContent):
+            continue
+        text = event.message.text
+        user_id = event.source.user_id
+
+        msg_type = event.message.type
+        fdb = firebase.FirebaseApplication(firebase_url, None)
+        if event.source.type == 'group':
+            user_chat_path = f'chat/{event.source.group_id}'
+        else:
+            user_chat_path = f'chat/{user_id}'
+            chat_state_path = f'state/{user_id}'
+        chatgpt = fdb.get(user_chat_path, None)
+        
+
+        if text.find('情節') != -1 and msg_type == 'text':
+            sceneID_match = re.search(r'情節\s*([A-Za-z0-9]+)', text)
+            if sceneID_match:
+                sceneID = sceneID_match.group(1)
+            else:
+                sceneID = 'A'
+            scene = Scene(sceneID)
+            
+            bubble_string = '''
+{
+    "type": "carousel",
+    "contents": [
+      {
+        "type": "bubble",
+        "body": {
+          "type": "box",
+          "layout": "vertical",
+          "contents": [
+            {
+              "type": "image",
+              "url": "[picURL]",
+              "size": "full",
+              "aspectMode": "cover",
+              "aspectRatio": "2:3",
+              "gravity": "top"
+            }
+          ],
+          "paddingAll": "0px"
+        }
+      },
+      {
+        "type": "bubble",
+        "header": {
+          "type": "box",
+          "layout": "vertical",
+          "contents": [
+            {
+              "type": "text",
+              "text": "劇情",
+              "wrap": true,
+              "color": "#000000",
+              "size": "xxl",
+              "flex": 5,
+              "weight": "bold"
+            }
+          ]
+        },
+        "body": {
+          "type": "box",
+          "layout": "vertical",
+          "contents": [
+            {
+              "type": "text",
+              "text": "[scene_text]",
+              "maxLines": 10,
+              "wrap": true
+            }
+          ]
+        },
+        "footer": {
+          "type": "box",
+          "layout": "vertical",
+          "contents": [
+            {
+              "type": "box",
+              "layout": "vertical",
+              "contents": [button]
+            }
+          ]
+        }
+      }
+    ]
+  }
+            '''
+            
+            # 圖片
+            bubble_string = bubble_string.replace('[picURL]',str(request.base_url) + f"static/{sceneID}.png")
+
+            # 劇情
+            bubble_string = bubble_string.replace('[scene_text]',scene.text)
+
+            # 產生選項按鈕
+            bubble_string = bubble_string.replace('[button]',json.dumps(scene.generate_buttons(), ensure_ascii=False, indent=2))
+            logging.info(bubble_string)
+            # 產生FlexMessage
+            msg = FlexMessage(alt_text=text, contents=FlexContainer.from_json(bubble_string))    
+            
+            await line_bot_api.reply_message(
+                ReplyMessageRequest(
+                    reply_token=event.reply_token,
+                    messages=[msg]
+                ))
+        
+    return 'OK'
+
+if __name__ == "__main__":
+    port = int(os.environ.get('PORT', default=8080))
+    debug = True if os.environ.get(
+        'API_ENV', default='develop') == 'develop' else False
+    logging.info('Application will start...')
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=debug)
