@@ -109,8 +109,8 @@ async def handle_callback(request: Request):
             if sceneID_match:
                 sceneID = sceneID_match.group(1)
             
-            if text.split(':')[1] == "清除並重新開始":
-                fdb.delete(user_chat_path, None)
+            if text.find('清除') != -1:
+                fdb.delete_async(user_chat_path, None)
 
             scene = Scene(sceneID)
             
