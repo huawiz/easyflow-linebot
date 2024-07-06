@@ -283,6 +283,32 @@ async def handle_callback(request: Request):
                 ))
         elif text == '清空' and msg_type == 'text':
             fdb.delete(user_chat_path, None)
+
+        else:
+            if chatgpt is None:
+                messages = []
+            else:
+                messages = chatgpt
+            model = genai.GenerativeModel('gemini-pro')
+            response = model.generate_content(
+                    f'{text}',
+                    safety_settings={
+                        HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+                        HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+                        HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+                        HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+                    }
+                )
+            reply_msg = response.text
+            await line_bot_api.reply_message(
+                ReplyMessageRequest(
+                    reply_token=event.reply_token,
+                    messages=[TextMessage(text=reply_msg)]
+                ))
+            
+        
+            
+            
         
     return 'OK'
 
