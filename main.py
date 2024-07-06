@@ -180,7 +180,7 @@ async def handle_callback(request: Request):
             '''
             
             # 圖片
-            bubble_string = bubble_string.replace('[picURL]',str(request.base_url) + f"static/{sceneID}.png")
+            bubble_string = bubble_string.replace('[picURL]','https://easyflow-linebot-7djjq3rm4a-as.a.run.app/' + f"static/{sceneID}.png")
 
             # 劇情
             bubble_string = bubble_string.replace('[scene_text]',scene.text)
@@ -272,7 +272,7 @@ async def handle_callback(request: Request):
             }
             }
             '''
-            bubble_string = bubble_string.replace('[picURL]',str(request.base_url) + f"static/{END_ID}.png")
+            bubble_string = bubble_string.replace('[picURL]','https://easyflow-linebot-7djjq3rm4a-as.a.run.app/' + f"static/{END_ID}.png")
             print(generated_text)
             bubble_string = bubble_string.replace('[end_text]', generated_text)  # 使用生成的文本
             msg = FlexMessage(alt_text=text, contents=FlexContainer.from_json(bubble_string)) 
