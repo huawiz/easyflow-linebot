@@ -151,11 +151,12 @@ async def handle_callback(request: Request):
             '''
             
             # 圖片
-            bubble_string = bubble_string.replace('{picURL}',os.getenv('url') + f"static/{sceneID}.png")
-            logging.info(os.getenv('url') + f"static/{sceneID}.png")
+            
  
             # 產生選項按鈕
             if '情節' in text[:5]:
+                bubble_string = bubble_string.replace('{picURL}',os.getenv('url') + f"static/{sceneID}.png")
+                logging.info(os.getenv('url') + f"static/{sceneID}.png")
                 bubble_string = bubble_string.replace('{scene_text}',scene.text)
                 bubble_string = bubble_string.replace('{button}',json.dumps(scene.generate_buttons(), ensure_ascii=False, indent=2))
                 # 更新firebase中的對話紀錄
@@ -163,8 +164,9 @@ async def handle_callback(request: Request):
                 fdb.put_async(user_chat_path, None, messages)
             else:
                 # 產生loading animation
+                bubble_string = bubble_string.replace('{picURL}',os.getenv('url') + f"static/{sceneID}.png")
+                logging.info(os.getenv('url') + f"static/{sceneID}.png")
                 await line_bot_api.show_loading_animation(ShowLoadingAnimationRequest(chatId=event.source.user_id, loadingSeconds=5))
-
                 # 產生結局文字
                 model = genai.GenerativeModel('gemini-pro')
                 
