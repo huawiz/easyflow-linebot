@@ -95,19 +95,18 @@ async def handle_callback(request: Request):
 
         user_chat_path = f'chat/{user_id}'
         chatgpt = fdb.get(user_chat_path, None)
-        
+       
 
 
         if ('情節' in text[:5] or '結局' in text[:5]) and msg_type == 'text':
-            
             messages = chatgpt if chatgpt is not None else []
-                
             if '情節' in text[:5]:
                 match = re.search(r'情節\s*([A-Za-z0-9]+)', text.split(':')[0])
                 sceneID = match.group(1) if match else None
                 scene = Scene(sceneID) if match else None
                 if text.split(':')[1] == "清除並重新開始":
                     fdb.delete_async(user_chat_path, None)
+                    
             else:
                 match = re.search(r'結局\s*([A-Za-z0-9]+)', text.split(':')[0])
                 sceneID = match.group(1) if match else None
@@ -122,7 +121,7 @@ async def handle_callback(request: Request):
             "hero": {
                 "type": "image",
                 "size": "full",
-                "aspectRatio": "14:13",
+                "aspectRatio": "21:13",
                 "aspectMode": "cover",
                 "url": "{picURL}"
             },
@@ -160,7 +159,7 @@ async def handle_callback(request: Request):
                 bubble_string = bubble_string.replace('{scene_text}',scene.text)
                 bubble_string = bubble_string.replace('{button}',json.dumps(scene.generate_buttons(), ensure_ascii=False, indent=2))
                 # 更新firebase中的對話紀錄
-                messages.append({'role': 'user', 'scene': scene.text+'\n','action':text.split(':')[1]})
+                messages.append({'userid':event.source.user_id,'type':'plot','role': 'user', 'scene': scene.text+'\n','action':text.split(':')[1]})
                 fdb.put_async(user_chat_path, None, messages)
             else:
                 # 產生loading animation
@@ -181,6 +180,8 @@ async def handle_callback(request: Request):
                 bubble_string = bubble_string.replace('{scene_text}', response.text)
                 bubble_string = bubble_string.replace('{button}',scene.end_buttons())
                 bubble_string = bubble_string.replace('{sceneID}',sceneID)
+                messages.append({'userid':event.source.user_id,'type':'end','role': 'user', 'scene': response.text+'\n','action':text})
+                fdb.put_async(user_chat_path, None, messages)
 
             # 產生FlexMessage
             msg = FlexMessage(alt_text=text, contents=FlexContainer.from_json(bubble_string))    
@@ -190,9 +191,35 @@ async def handle_callback(request: Request):
                     reply_token=event.reply_token,
                     messages=[msg]
                 ))
-        elif text == '清空' and msg_type == 'text':
+        elif text == '清除紀錄' and msg_type == 'text':
+            await line_bot_api.show_loading_animation(ShowLoadingAnimationRequest(chatId=event.source.user_id, loadingSeconds=5))
             fdb.delete(user_chat_path, None)
+            await line_bot_api.reply_message(
+                ReplyMessageRequest(
+                    reply_token=event.reply_token,
+                    messages=[TextMessage(text='紀錄已清除')]
+                ))
 
+        elif text == '獲取目前摘要' and msg_type == 'text':
+            messages = chatgpt if chatgpt is not None else []
+            await line_bot_api.show_loading_animation(ShowLoadingAnimationRequest(chatId=event.source.user_id, loadingSeconds=5))
+            model = genai.GenerativeModel('gemini-pro')
+            response = model.generate_content(
+                    f'Summary the following message which userid is {event.source.user_id} in 繁體中文 by less 5 list points. 如果無對應userid的訊息，請回答"無"。  \n{messages}',
+                    safety_settings={
+                        HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+                        HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+                        HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+                        HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+                    }
+                )
+            reply_msg = response.text
+            await line_bot_api.reply_message(
+                ReplyMessageRequest(
+                    reply_token=event.reply_token,
+                    messages=[TextMessage(text=reply_msg)]
+                ))
+        """
         else:
             model = genai.GenerativeModel('gemini-pro')
             response = model.generate_content(
@@ -210,7 +237,7 @@ async def handle_callback(request: Request):
                     reply_token=event.reply_token,
                     messages=[TextMessage(text=reply_msg)]
                 ))
-    
+        """
     return 'OK'
 
 if __name__ == "__main__":
