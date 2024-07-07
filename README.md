@@ -36,7 +36,7 @@ SITCON Hackathon 2024 成果發表
     - Firebase<br>
     儲存使用者選擇選項的即時資料庫。
     - Playground AI <br>
-    產生美術圖。
+    產生劇本圖。
 
 
 ### 你還想分享的事情
@@ -58,6 +58,9 @@ LINEBOT ID:@747bxvem
 成品圖
 
 ![image](assets/showcase.png)
+
+![image](assets/IMG_2036.png)
+
 
 LOGO圖
 
