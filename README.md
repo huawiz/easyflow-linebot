@@ -35,6 +35,8 @@ SITCON Hackathon 2024 成果發表
     我們所選用的模型。
     - Firebase<br>
     儲存使用者選擇選項的即時資料庫。
+    - Playground AI <br>
+    產生美術圖。
 
 
 ### 你還想分享的事情
